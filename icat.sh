@@ -4,16 +4,25 @@ CACHEDIR="${XDG_CACHE_HOME:-$HOME/.cache}/icat"
 mkdir -p "$CACHEDIR"
 CACHEFILE=""
 
+terminal=""
+case "${TERM_PROGRAM-}" in
+iTerm.app) terminal="iterm" ;;
+WezTerm) terminal="wezterm" ;;
+esac
+
+case "${TERM-}" in
+foot) terminal="sixel" ;;
+xterm-kitty) terminal="kitty" ;;
+esac
+[[ -z "$terminal" ]] && echo "Unsupported terminal" && exit 1
+
 function display() {
-	if [[ "${TERM_PROGRAM-}" == "WezTerm" ]]; then
-		cat - | wezterm imgcat
-	elif [[ "${TERM_PROGRAM-}" == "iTerm.app" ]]; then
-		cat - | eval "$(alias imgcat | cut -d "=" -f2-)"
-	elif [[ "${TERM-}" = "xterm-kitty" ]]; then
-		cat - | kitty +kitten icat
-	else
-		echo "No image viewer defined for this terminal" && exit 1
-	fi
+	case $terminal in
+	iterm) imgcat </dev/stdin ;;
+	kitty) kitty +kitten icat </dev/stdin ;;
+	sixel) convert - sixel:- ;;
+	wezterm) wezterm imgcat </dev/stdin ;;
+	esac
 }
 
 function displaySVG() {
@@ -46,7 +55,7 @@ function handleLocalFile() {
 }
 
 if [ ! -t 0 ]; then
-	input="$(cat - | base64 -w0)"
+	input="$(cat - | base64 | tr -d "\n")"
 
 	CACHEFILE="$CACHEDIR/$(echo "$input" | shasum -a 256 | cut -d " " -f1)"
 	[[ -f "$CACHEFILE" ]] && handleLocalFile "$CACHEFILE"
@@ -59,7 +68,7 @@ if [ ! -t 0 ]; then
 	*image*) echo "$input" | base64 -d | display ;;
 	*) echo "Unknown file type" && exit 1 ;;
 	esac
-elif [[ "$1" == http* ]]; then
+elif [[ "${1-}" == http* ]]; then
 	CACHEFILE="$CACHEDIR/$(echo "$1" | shasum -a 256 | cut -d " " -f1)"
 	[[ -f "$CACHEFILE" ]] && handleLocalFile "$CACHEFILE"
 
@@ -74,7 +83,7 @@ elif [[ "$1" == http* ]]; then
 		curl -fsSL "$1" >"$CACHEFILE"
 		handleLocalFile "$CACHEFILE"
 	fi
-elif [[ -n "$1" ]]; then
+elif [[ -n "${1-}" ]]; then
 	[[ ! -f "$1" ]] && echo "File not found: $1" && exit 1
 
 	CACHEFILE="$CACHEDIR/$(shasum -a 256 "$1" | cut -d " " -f1)"
