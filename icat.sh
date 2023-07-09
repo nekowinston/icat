@@ -7,6 +7,7 @@ CACHEFILE=""
 terminal=""
 case "${TERM_PROGRAM-}" in
 iTerm.app) terminal="iterm" ;;
+vscode) terminal="sixel" ;;
 WezTerm) terminal="wezterm" ;;
 esac
 
